@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Art Proposal Architect</title>
+  
+  <!-- 引入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 引入 React 與 ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- 引入 Babel 用於在瀏覽器中編譯 JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body, .editor-input { font-family: "Times New Roman", Times, serif; }
+  </style>
+</head>
+<body class="bg-[#F8F8F8] text-black">
+  <div id="root"></div>
+
+  <!-- 使用 Babel 編譯並作為 Module 載入，這樣我們才能載入圖示 -->
+  <script type="text/babel" data-type="module">
+    import * as LucideIcons from 'https://esm.sh/lucide-react@0.292.0';
+    
+    const { 
+      Plus, Trash2, Eye, EyeOff, Save, Download, 
+      ChevronDown, ChevronUp, Image: ImageIcon, 
+      Send, Copy, Sparkles, User, Briefcase, FileText,
+      Layout, DollarSign, List, ExternalLink, HelpCircle,
+      CheckCircle, RefreshCw, Instagram, Globe, Phone, Mail,
+      Settings, UploadCloud
+    } = LucideIcons;
+
+    const { useState, useEffect } = React;
+
+    const API_KEY = ""; // 請在這裡填入您的 Gemini API Key
+    const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+
+    const App = () => {
+      const [activeTab, setActiveTab] = useState('editor');
+      const [loading, setLoading] = useState(false);
+      const [generatingDiagram, setGeneratingDiagram] = useState(false);
+      const [titleSuggestions, setTitleSuggestions] = useState([]);
+      const [proposal, setProposal] = useState('');
+      const [copyStatus, setCopyStatus] = useState(false);
+      const [showInstructions, setShowInstructions] = useState(false);
+      const [showTechInstructions, setShowTechInstructions] = useState(false);
+      const [outputLanguage, setOutputLanguage] = useState('English');
+
+      const [visibility, setVisibility] = useState({
+        artistInfo: true,
+        interests: true,
+        portfolio: true,
+        participatingArtists: true,
+        budget: true,
+        techRider: true,
+      });
+
+      const [formData, setFormData] = useState({
+        selectedBio: 'v2',
+        artistInfo: {
+          name: "Ann Tsai (Tz An Tsai)",
+          role: "Director / Composer / Performer",
+          email: "anntsai.info@gmail.com",
+          phone: "+886989105270",
+          statement: "Exploring human softness and fragility through sound, space, and perception",
+          instagram: "https://www.instagram.com/_tsaiann/",
+          website: "https://ann01.com/?utm_source=ig&utm_medium=social&utm_content=link_in_bio"
+        },
+        bios: {
+          v1: `Ann Tsai (Tz An Tsai) is from Taiwan Taipei, whose practice bridges classical performance, experimental sound art, and music theatre. During his undergraduate studies, he trained in classical composition under Professor Wan Hua Song, developing a solid foundation in compositional techniques and musical language. He earned his Master’s degree in Piano Performance from the Zurich University of the Arts (ZHdK) in 2022, noted for his nuanced and deeply expressive interpretations. After his studies, Tsai shifted his focus to computer-based sound processing and spatial sound, studying with Professor Thomas Peter. Currently based in Berlin, he continues to expand his artistic language under the guidance of composer Zeynep Toraman, integrating electronics, acoustic instruments, and visual elements into immersive, multi-layered works. His experience spans music theatre, sound design, and interdisciplinary performance, exploring the relationships between sound, space, and perception through synthesis, extended techniques, and field recordings.`,
+          v2: `Born and raised in Taiwan, Tz An (Ann) Tsai is a pianist and composer whose artistic practice spans classical performance, electroacoustic composition, and interdisciplinary sound installation. After obtaining a Master’s degree in Piano Performance from the Zurich University of the Arts (ZHdK) in 2022, Tsai performed solo recitals at the National Concert Hall in Taipei and the Eslite Performance Hall. He is currently a member of the Petrichor Piano Trio. Driven by a profound curiosity to break traditional musical boundaries, Tsai transitioned into experimental sound art following his classical studies. He specializes in computer-based sound processing and completed a CAS in Computer Music at ZHdK under the mentorship of Professor Thomas Peter, exploring the multifaceted possibilities of sound and spatial expression. Currently based in Berlin, Tsai continues to expand his creative practice. He studies electroacoustic composition with Zeynep Toraman and sound design and interdisciplinary installation at the Catalyst Institute. His work merges sound, visuals, and spatial experiences to construct multi-layered perceptual narratives, intertwining his classical background with contemporary art forms. His exploration of tonal diversity began with the electroacoustic work Redemption (Zurich, 2022). In 2023, he premiered the sound installations and video synthesis works Where I See, I Sink and Soft Animal at Funkhaus Berlin, followed by the electroacoustic piece Kong Jian (Space) at the Spatial Sound Festival. Tsai is passionate about rediscovering the potential of instruments through electronic augmentation, combining acoustic elements with synthesizers and digital processing. His 2025 works showcase a cutting-edge cross-disciplinary vision: Poetic of Imperfection (ZHdK) integrates piano with AI-generated sound and live visuals, while the music theater piece Tower of Sleep (GlogauAIR, Berlin) features bass recorder, clarinet, vocals, and synthesizers. Drawing inspiration from diverse musical styles and environmental recordings, Tsai’s work seeks to deepen the understanding of contemporary artistic vocabulary, creating unique sensory spaces.`,
+          other: ''
+        },
+        interests: `I am a composer and director working across music theatre, sound art, live instruments, and video. My focus is to discover what triggers human softness and fragility, exploring how sound, space, and perception interact to evoke subtle emotional states. I often combine acoustic instruments, electronic textures, and visual elements to create immersive, multi-sensory works. In my process, improvisation and dialogue with performers and audiences are essential; I treat each setting as a living score, and each participant as an active contributor. Through my work, I aim to reflect on communication, connection, and presence.`,
+        works: [
+          { id: 1, title: '', type: '', role: '', location: '', desc: '', link: '', images: [] }
+        ],
+        otherArtists: [
+          { id: 1, name: '', role: '', bio: '' }
+        ],
+        project: {
+          title: '',
+          shortDesc: '',
+          core: '',
+          audience: '',
+          future: '',
+        },
+        techRider: {
+          categories: {
+            audio: { items: [{ id: 1, name: '主場 PA 系統', qty: 1, description: '' }] },
+            signal: { items: [{ id: 1, name: 'Audio Interface', qty: 1, description: '' }] },
+            stage: { items: [{ id: 1, name: '器材桌', qty: 1, description: '' }] },
+            monitor: { items: [{ id: 1, name: '監聽喇叭', qty: 2, description: '' }] },
+            visuals: { items: [{ id: 1, name: '投影機', qty: 1, description: '' }] },
+            lighting: { items: [{ id: 1, name: '薄煙機 Hazer', qty: 1, description: '' }] },
+            power: { items: [{ id: 1, name: '獨立音響電源', qty: 1, description: '' }] },
+            logistics: { items: [{ id: 1, name: '試音時間', qty: 1, description: '' }] },
+            others: { items: [{ id: 1, name: '版權聲明', qty: 1, description: '' }] }
+          },
+          diagramDescription: '',
+          uploadedDiagrams: []
+        },
+        budget: {
+          expenses: {
+            personnel: { items: [{ id: 1, name: '企劃費', amount: 0, description: '' }] },
+            administrative: { items: [{ id: 1, name: '場租', amount: 0, description: '' }] },
+            operation: { items: [{ id: 1, name: '設備租借', amount: 0, description: '' }] },
+            travel: { items: [{ id: 1, name: '機票費', amount: 0, description: '' }] },
+            materials: { items: [{ id: 1, name: '創作材料', amount: 0, description: '' }] },
+            maintenance: { items: [{ id: 1, name: '樂器維護', amount: 0, description: '' }] },
+            equipment: { items: [{ id: 1, name: '硬碟/周邊', amount: 0, description: '' }] },
+            others: { items: [{ id: 1, name: '雜項', amount: 0, description: '' }] }
+          }
+        }
+      });
+
+      const toggleVisibility = (key) => setVisibility(v => ({ ...v, [key]: !v[key] }));
+
+      const handleDataChange = (path, value) => {
+        const keys = path.split('.');
+        setFormData(prev => {
+          let newData = { ...prev };
+          let current = newData;
+          for (let i = 0; i < keys.length - 1; i++) {
+            current[keys[i]] = { ...current[keys[i]] };
+            current = current[keys[i]];
+          }
+          current[keys[keys.length - 1]] = value;
+          return newData;
+        });
+      };
+
+      const addListItem = (listPath, defaultObj) => {
+        const keys = listPath.split('.');
+        setFormData(prev => {
+          let newData = { ...prev };
+          let current = newData;
+          for (let i = 0; i < keys.length - 1; i++) {
+            current[keys[i]] = { ...current[keys[i]] };
+            current = current[keys[i]];
+          }
+          current[keys[keys.length - 1]] = [...current[keys[keys.length - 1]], { ...defaultObj, id: Date.now() }];
+          return newData;
+        });
+      };
+
+      const removeListItem = (listPath, id) => {
+        const keys = listPath.split('.');
+        setFormData(prev => {
+          let newData = { ...prev };
+          let current = newData;
+          for (let i = 0; i < keys.length - 1; i++) {
+            current[keys[i]] = { ...current[keys[i]] };
+            current = current[keys[i]];
+          }
+          current[keys[keys.length - 1]] = current[keys[keys.length - 1]].filter(item => item.id !== id);
+          return newData;
+        });
+      };
+
+      const handleImageUpload = (workIdx, e) => {
+        const files = Array.from(e.target.files);
+        const newImages = files.map(file => URL.createObjectURL(file));
+        const updatedWorks = [...formData.works];
+        updatedWorks[workIdx].images = [...updatedWorks[workIdx].images, ...newImages];
+        handleDataChange('works', updatedWorks);
+      };
+
+      const handleDiagramUpload = (e) => {
+        const files = Array.from(e.target.files);
+        const newImages = files.map(file => URL.createObjectURL(file));
+        setFormData(prev => ({
+          ...prev,
+          techRider: {
+            ...prev.techRider,
+            uploadedDiagrams: [...prev.techRider.uploadedDiagrams, ...newImages]
+          }
+        }));
+      };
+
+      const generateTitles = async () => {
+        if (!formData.project.title && !formData.project.core) return;
+        setLoading(true);
+        try {
+          const prompt = `Based on this draft project title: "${formData.project.title}" and conceptual core: "${formData.project.core}", suggest 5 project titles in the style of Berlin's KW Institute for Contemporary Art. KW titles are often conceptual, minimal, and evocative. Provide only a JSON list of strings.`;
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { titles: { type: "ARRAY", items: { type: "STRING" } } } } }
+            })
+          });
+          const result = await response.json();
+          const suggested = JSON.parse(result.candidates[0].content.parts[0].text).titles;
+          setTitleSuggestions(suggested);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const generateSignalFlow = async () => {
+        setGeneratingDiagram(true);
+        try {
+          const techContext = JSON.stringify(formData.techRider.categories);
+          const prompt = `You are a professional audio/visual technician. Based on the following Tech Rider equipment list:
+          ${techContext}
+          
+          Generate a clear, structured text-based description of the "Signal Flow & Stage Plot Layout". 
+          Explain how the audio, visual, and power components connect to each other logically. 
+          Use clear bullet points or arrows (->) to denote signal chains.
+          Write the response in ${outputLanguage === 'Chinese' ? 'Traditional Chinese (繁體中文)' : 'English'}.`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
+          });
+          const result = await response.json();
+          const diagramText = result.candidates[0].content.parts[0].text;
+          handleDataChange('techRider.diagramDescription', diagramText);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setGeneratingDiagram(false);
+        }
+      };
+
+      const generateFullProposal = async () => {
+        setLoading(true);
+        setProposal('');
+        try {
+          const context = {
+            artist: visibility.artistInfo ? formData.artistInfo : null,
+            bio: formData.bios[formData.selectedBio],
+            method: visibility.interests ? formData.interests : null,
+            project: formData.project,
+            budget: visibility.budget ? formData.budget : null,
+            techRider: visibility.techRider ? formData.techRider : null,
+            works: visibility.portfolio ? formData.works : [],
+            otherArtists: visibility.participatingArtists ? formData.otherArtists : []
+          };
+
+          const prompt = `Synthesize this data into a highly professional, well-structured art proposal. Use a sophisticated, minimal tone suitable for contemporary art institutions.
+          Data: ${JSON.stringify(context)}
+          Important: 
+          1. Only include sections where data is provided. If a section's text content is empty, omit it entirely.
+          2. Focus on the core theme of 'human softness and fragility'. 
+          3. For Budget and Tech Rider, format them beautifully as markdown lists or tables if the data exists.
+          4. Output language requirement: Please write the ENTIRE final generated proposal in ${outputLanguage === 'Chinese' ? 'Traditional Chinese (繁體中文)' : 'English'}.
+          Use professional markdown structuring.`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+            })
+          });
+          const result = await response.json();
+          setProposal(result.candidates[0].content.parts[0].text);
+          setActiveTab('preview');
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const SectionHeader = ({ title, icon: Icon, visible, onToggle, id }) => (
+        <div className={`flex items-center justify-between p-4 border-b border-black bg-white sticky top-0 z-10`}>
+          <div className="flex items-center gap-3">
+            {Icon && <Icon size={20} strokeWidth={2} />}
+            <h2 className="text-base font-bold tracking-wide">{title}</h2>
+          </div>
+          <button 
+            onClick={() => onToggle(id)}
+            className={`p-1 transition-colors ${visible ? 'text-black' : 'text-slate-300'}`}
+          >
+            {visible ? <Eye size={20} /> : <EyeOff size={20} />}
+          </button>
+        </div>
+      );
+
+      const techCategoriesMap = [
+        { key: 'audio', label: '一、音訊系統與空間聲學 (Audio System & Spatialization)' },
+        { key: 'signal', label: '二、訊號傳輸與路由協議 (Signal Flow & Digital Protocol)' },
+        { key: 'stage', label: '三、舞台配置與背線設備 (Stage Plot & Backline)' },
+        { key: 'monitor', label: '四、監聽系統與返送需求 (Monitoring & In-Ears)' },
+        { key: 'visuals', label: '五、投影、視訊與影音同步 (Visuals, Projection & Sync)' },
+        { key: 'lighting', label: '六、燈光、氛圍與特殊效果 (Lighting & Atmospheric FX)' },
+        { key: 'power', label: '七、電力規範、網絡與地線管理 (Power, Network & Grounding)' },
+        { key: 'logistics', label: '八、後勤、空間與場地協作 (Logistics & Coordination)' },
+        { key: 'others', label: '九、其他 (Miscellaneous)' }
+      ];
+
+      return (
+        <div>
+          {/* Navigation */}
+          <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-black flex items-center px-8 justify-between z-50">
+            <div className="font-bold text-2xl tracking-tighter w-10 h-10 bg-black text-white flex items-center justify-center">
+              AP
+            </div>
+            <div className="flex gap-6 h-full items-center">
+              <button 
+                onClick={() => setActiveTab('editor')}
+                className={`text-base font-medium ${activeTab === 'editor' ? 'underline underline-offset-4' : 'opacity-40 hover:opacity-100'}`}
+              >
+                Editor
+              </button>
+              <button 
+                onClick={() => setActiveTab('preview')}
+                className={`text-base font-medium ${activeTab === 'preview' ? 'underline underline-offset-4' : 'opacity-40 hover:opacity-100'}`}
+              >
+                Preview Proposal
+              </button>
+            </div>
+          </nav>
+
+          <main className="pt-24 pb-20 px-4 md:px-12 max-w-7xl mx-auto">
+            {activeTab === 'editor' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                
+                {/* Left Column */}
+                <div className="lg:col-span-5 space-y-12">
+                  {/* Artist Details */}
+                  <div className="bg-white border border-black">
+                    <SectionHeader title="Artist Information" icon={User} visible={visibility.artistInfo} onToggle={toggleVisibility} id="artistInfo" />
+                    {visibility.artistInfo && (
+                      <div className="p-6 space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-bold opacity-70">Name</label>
+                          <input className="w-full border-b border-slate-200 py-1 text-base focus:border-black outline-none editor-input" value={formData.artistInfo.name} onChange={(e) => handleDataChange('artistInfo.name', e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-bold opacity-70">Role</label>
+                          <input className="w-full border-b border-slate-200 py-1 text-base focus:border-black outline-none editor-input" value={formData.artistInfo.role} onChange={(e) => handleDataChange('artistInfo.role', e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-sm font-bold opacity-70">Email</label>
+                            <input className="w-full border-b border-slate-200 py-1 text-base outline-none editor-input" value={formData.artistInfo.email} onChange={(e) => handleDataChange('artistInfo.email', e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-sm font-bold opacity-70">Phone</label>
+                            <input className="w-full border-b border-slate-200 py-1 text-base outline-none editor-input" value={formData.artistInfo.phone} onChange={(e) => handleDataChange('artistInfo.phone', e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-bold opacity-70 flex items-center gap-2"><Instagram size={14}/> Instagram</label>
+                          <input className="w-full border-b border-slate-200 py-1 text-base outline-none editor-input" value={formData.artistInfo.instagram} onChange={(e) => handleDataChange('artistInfo.instagram', e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-bold opacity-70 flex items-center gap-2"><Globe size={14}/> Website</label>
+                          <input className="w-full border-b border-slate-200 py-1 text-base outline-none editor-input" value={formData.artistInfo.website} onChange={(e) => handleDataChange('artistInfo.website', e.target.value)} />
+                        </div>
+                        <div className="space-y-1 pt-2">
+                          <label className="text-sm font-bold opacity-70">Core Tagline</label>
+                          <textarea className="w-full border border-slate-200 p-2 text-base outline-none h-20 editor-input" value={formData.artistInfo.statement} onChange={(e) => handleDataChange('artistInfo.statement', e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Biographies */}
+                  <div className="bg-white border border-black">
+                    <div className="p-4 border-b border-black flex justify-between items-center">
+                       <h2 className="text-base font-bold flex items-center gap-2 tracking-wide"><FileText size={20}/> Biographies</h2>
+                    </div>
+                    <div className="p-6 space-y-6">
+                      {/* Bio Selection Mechanism */}
+                      <div className="bg-slate-50 p-4 border border-slate-200 space-y-3">
+                        <p className="text-sm font-bold">Select the version to include in the proposal:</p>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="bioSelection" 
+                            className="w-4 h-4 text-black focus:ring-black accent-black"
+                            checked={formData.selectedBio === 'v1'} 
+                            onChange={() => handleDataChange('selectedBio', 'v1')} 
+                          />
+                          <span className="text-base">Version 1 (Classical Focus)</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="bioSelection" 
+                            className="w-4 h-4 text-black focus:ring-black accent-black"
+                            checked={formData.selectedBio === 'v2'} 
+                            onChange={() => handleDataChange('selectedBio', 'v2')} 
+                          />
+                          <span className="text-base">Version 2 (Experimental Focus)</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name="bioSelection" 
+                            className="w-4 h-4 text-black focus:ring-black accent-black"
+                            checked={formData.selectedBio === 'other'} 
+                            onChange={() => handleDataChange('selectedBio', 'other')} 
+                          />
+                          <span className="text-base">Other (自訂其他版本)</span>
+                        </label>
+                      </div>
+
+                      {formData.selectedBio === 'v1' && (
+                        <div>
+                          <label className="text-sm font-bold opacity-70 mb-2 block">Version 1 Edit (Classical)</label>
+                          <textarea className="w-full border border-slate-200 p-3 text-base h-48 outline-none editor-input leading-relaxed" value={formData.bios.v1} onChange={(e) => handleDataChange('bios.v1', e.target.value)} />
+                        </div>
+                      )}
+                      {formData.selectedBio === 'v2' && (
+                        <div>
+                          <label className="text-sm font-bold opacity-70 mb-2 block">Version 2 Edit (Experimental)</label>
+                          <textarea className="w-full border border-slate-200 p-3 text-base h-64 outline-none editor-input leading-relaxed" value={formData.bios.v2} onChange={(e) => handleDataChange('bios.v2', e.target.value)} />
+                        </div>
+                      )}
+                      {formData.selectedBio === 'other' && (
+                        <div>
+                          <label className="text-sm font-bold opacity-70 mb-2 block">Other Edit (自訂內容)</label>
+                          <textarea className="w-full border border-slate-200 p-3 text-base h-64 outline-none editor-input leading-relaxed" placeholder="Type your custom bio here..." value={formData.bios.other} onChange={(e) => handleDataChange('bios.other', e.target.value)} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Participating Artists */}
+                  <div className="bg-white border border-black">
+                    <SectionHeader title="Participating Artists" icon={User} visible={visibility.participatingArtists} onToggle={toggleVisibility} id="participatingArtists" />
+                    {visibility.participatingArtists && (
+                      <div className="p-6 space-y-6">
+                        {formData.otherArtists.map((artist, idx) => (
+                          <div key={artist.id} className="group border border-slate-100 p-4 bg-slate-50/50 relative">
+                            <button onClick={() => removeListItem('otherArtists', artist.id)} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
+                              <Trash2 size={14}/>
+                            </button>
+                            <div className="space-y-3 pr-6">
+                              <input className="w-full text-base py-1 border-b border-slate-300 focus:border-black outline-none editor-input bg-transparent" placeholder="Name (姓名)" value={artist.name} onChange={(e) => {
+                                const newList = [...formData.otherArtists];
+                                newList[idx].name = e.target.value;
+                                handleDataChange('otherArtists', newList);
+                              }}/>
+                              <input className="w-full text-base py-1 border-b border-slate-300 focus:border-black outline-none editor-input bg-transparent" placeholder="Role (角色/職位)" value={artist.role} onChange={(e) => {
+                                const newList = [...formData.otherArtists];
+                                newList[idx].role = e.target.value;
+                                handleDataChange('otherArtists', newList);
+                              }}/>
+                              <textarea className="w-full text-sm py-2 border-b border-dashed border-slate-300 focus:border-black outline-none editor-input bg-transparent h-20" placeholder="Bio (簡歷)..." value={artist.bio} onChange={(e) => {
+                                const newList = [...formData.otherArtists];
+                                newList[idx].bio = e.target.value;
+                                handleDataChange('otherArtists', newList);
+                              }}/>
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={() => addListItem('otherArtists', { name: '', role: '', bio: '' })} className="text-sm font-bold opacity-40 hover:opacity-100 flex items-center gap-1">
+                          <Plus size={14}/> Add Artist
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="lg:col-span-7 space-y-12">
+                  {/* Project Core Fields */}
+                  <div className="bg-white border border-black p-8 space-y-8">
+                    <h2 className="text-2xl font-bold border-b border-black pb-4 tracking-tight">Project Proposal</h2>
+                    
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold opacity-70 block">Project Title</label>
+                        <div className="flex gap-4">
+                          <input className="flex-1 border-b-2 border-black py-2 text-2xl font-bold outline-none editor-input" value={formData.project.title} onChange={(e) => handleDataChange('project.title', e.target.value)} placeholder="Enter Draft Title..." />
+                          <button onClick={generateTitles} className="bg-black text-white px-4 py-2 hover:opacity-80 transition-all flex items-center gap-2 text-sm font-bold">
+                            <Sparkles size={16}/> Titles
+                          </button>
+                        </div>
+                        {titleSuggestions.length > 0 && (
+                          <div className="mt-4 p-4 bg-slate-50 border border-dashed border-black/20">
+                            <p className="text-sm font-bold mb-3 opacity-60">Suggestions (Click to apply):</p>
+                            <div className="flex flex-wrap gap-2">
+                              {titleSuggestions.map(t => (
+                                <button key={t} onClick={() => handleDataChange('project.title', t)} className="text-sm px-3 py-1.5 bg-white border border-black/20 hover:border-black transition-all">
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {[
+                        { key: 'shortDesc', label: 'Project Short Description' },
+                        { key: 'core', label: 'Conceptual Core' },
+                        { key: 'audience', label: 'Audience Experience and Setup' },
+                        { key: 'future', label: 'Future Plans' }
+                      ].map(field => (
+                        <div key={field.key} className="space-y-1">
+                          <label className="text-sm font-bold opacity-70">{field.label}</label>
+                          <textarea 
+                            className="w-full border border-slate-200 p-3 text-base h-32 outline-none editor-input" 
+                            value={formData.project[field.key]} 
+                            onChange={(e) => handleDataChange(`project.${field.key}`, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tech Rider Component */}
+                  <div className="bg-white border border-black">
+                    <SectionHeader title="Tech Rider & Layout" icon={Settings} visible={visibility.techRider} onToggle={toggleVisibility} id="techRider" />
+                    {visibility.techRider && (
+                      <div className="p-8 space-y-12">
+                        
+                        {/* Diagram Controls */}
+                        <div className="bg-slate-50 border border-black p-6 space-y-6">
+                          <h3 className="text-base font-bold flex items-center gap-2"><ImageIcon size={18} /> Signal Flow & Diagram</h3>
+                          <div className="flex flex-wrap gap-4">
+                            <button 
+                              onClick={generateSignalFlow} 
+                              disabled={generatingDiagram}
+                              className="bg-black text-white px-4 py-2 hover:opacity-80 transition-all flex items-center gap-2 text-sm font-bold"
+                            >
+                              {generatingDiagram ? <RefreshCw className="animate-spin" size={16}/> : <Sparkles size={16}/>}
+                              Generate Signal Flow Description
+                            </button>
+                            
+                            <label className="bg-white border border-black text-black cursor-pointer px-4 py-2 hover:bg-slate-100 transition-all flex items-center gap-2 text-sm font-bold">
+                              <UploadCloud size={16}/>
+                              Upload Diagram Image
+                              <input type="file" multiple accept="image/*" className="hidden" onChange={handleDiagramUpload} />
+                            </label>
+                          </div>
+
+                          {/* Generated Text / Notes */}
+                          <textarea 
+                            className="w-full border border-slate-300 p-3 text-sm h-32 outline-none editor-input bg-white" 
+                            placeholder="Signal flow routing description..."
+                            value={formData.techRider.diagramDescription}
+                            onChange={(e) => handleDataChange('techRider.diagramDescription', e.target.value)}
+                          />
+
+                          {/* Display Uploaded Images */}
+                          {formData.techRider.uploadedDiagrams.length > 0 && (
+                            <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200">
+                              {formData.techRider.uploadedDiagrams.map((img, idx) => (
+                                <div key={idx} className="relative group">
+                                  <img src={img} className="h-24 object-contain border border-black" alt="Diagram" />
+                                  <button onClick={() => {
+                                     const newDiagrams = formData.techRider.uploadedDiagrams.filter((_, i) => i !== idx);
+                                     handleDataChange('techRider.uploadedDiagrams', newDiagrams);
+                                  }} className="absolute -top-2 -right-2 bg-white border border-black rounded-full opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-500">
+                                    <Trash2 size={12}/>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tech List */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                          {techCategoriesMap.map(cat => (
+                            <div key={cat.key} className="space-y-4">
+                              <h3 className="text-sm font-bold border-b border-black pb-1 mb-3">{cat.label}</h3>
+                              
+                              <div className="space-y-4">
+                                {formData.techRider.categories[cat.key].items.map((item, idx) => (
+                                  <div key={item.id} className="group border border-slate-100 p-3 bg-slate-50/50 relative">
+                                    <button onClick={() => {
+                                       const newList = formData.techRider.categories[cat.key].items.filter(i => i.id !== item.id);
+                                       handleDataChange(`techRider.categories.${cat.key}.items`, newList);
+                                    }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
+                                      <Trash2 size={14}/>
+                                    </button>
+                                    
+                                    <div className="flex gap-4 items-center pr-6 mb-2">
+                                      <input className="flex-1 text-base py-1 border-b border-slate-300 focus:border-black outline-none editor-input bg-transparent" placeholder="Item Name (器材)" value={item.name} onChange={(e) => {
+                                        const newList = [...formData.techRider.categories[cat.key].items];
+                                        newList[idx].name = e.target.value;
+                                        handleDataChange(`techRider.categories.${cat.key}.items`, newList);
+                                      }}/>
+                                      <input type="number" className="w-16 text-base py-1 border-b border-slate-300 focus:border-black text-right outline-none editor-input bg-transparent" placeholder="Qty" value={item.qty} onChange={(e) => {
+                                        const newList = [...formData.techRider.categories[cat.key].items];
+                                        newList[idx].qty = parseFloat(e.target.value) || 0;
+                                        handleDataChange(`techRider.categories.${cat.key}.items`, newList);
+                                      }}/>
+                                    </div>
+                                    
+                                    <div>
+                                      <input 
+                                        className="w-full text-sm italic py-1 border-b border-dashed border-slate-300 focus:border-black outline-none editor-input bg-transparent text-slate-600"
+                                        placeholder="Add notes (e.g. models, placement)..."
+                                        value={item.description || ''}
+                                        onChange={(e) => {
+                                          const newList = [...formData.techRider.categories[cat.key].items];
+                                          newList[idx].description = e.target.value;
+                                          handleDataChange(`techRider.categories.${cat.key}.items`, newList);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                <button onClick={() => addListItem(`techRider.categories.${cat.key}.items`, { name: '', qty: 0, description: '' })} className="text-sm font-bold opacity-40 hover:opacity-100 flex items-center gap-1">
+                                  <Plus size={14}/> Add Requirement
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Tech Rider Guidelines */}
+                        <div className="pt-10 border-t border-black">
+                          <button 
+                            onClick={() => setShowTechInstructions(!showTechInstructions)}
+                            className="flex items-center gap-2 text-sm font-bold hover:underline"
+                          >
+                            <HelpCircle size={16}/> Tech Rider Guidelines (技術需求參考)
+                          </button>
+                          
+                          {showTechInstructions && (
+                            <div className="mt-4 p-6 bg-slate-100 text-sm leading-relaxed space-y-6 border border-black font-sans">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">一、音訊系統與空間聲學</p>
+                                    <p className="opacity-80 italic mb-1">Audio System & Spatialization</p>
+                                    <p>主場 PA 系統（指定品牌如 d&b, L-Acoustics）、多聲道陣列（如 4.1、8.1）、超低音頻率需求（需下潛至 25Hz 以下）、環境殘響控制等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">二、訊號傳輸與路由協議</p>
+                                    <p className="opacity-80 italic mb-1">Signal Flow & Digital Protocol</p>
+                                    <p>數位傳輸（Dante, MADI）、主時鐘同步器、AD/DA Converter、多通道音訊接口、備援切換系統、隔離變壓器等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">三、舞台配置與背線設備</p>
+                                    <p className="opacity-80 italic mb-1">Stage Plot & Backline</p>
+                                    <p>專業器材桌（需註明高度）、避震墊、合成器架、重型麥克風腳架、防靜電地墊、現場用鋼琴（含調音需求）、吉他/貝斯音箱等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">四、監聽系統與返送需求</p>
+                                    <p className="opacity-80 italic mb-1">Monitoring & In-Ears</p>
+                                    <p>無線監聽系統（IEM）、舞台監聽喇叭（Wedge）、近場監聽音箱、耳機擴大機、監聽混音控台等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">五、投影、視訊與影音同步</p>
+                                    <p className="opacity-80 italic mb-1">Visuals, Projection & Sync</p>
+                                    <p>高流明投影機、投影校正時間（Dark Hour）、影像傳輸線材（SDI/HDMI）、影音同步協議（LTC/MTC/OSC）等。</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-4">
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">六、燈光、氛圍與特殊效果</p>
+                                    <p className="opacity-80 italic mb-1">Lighting & Atmospheric FX</p>
+                                    <p>全黑環境要求、色譜設定、薄煙機（Hazer）、雷射設備、DMX 控制協議、感測器專用紅外線照明等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">七、電力規範、網絡與地線管理</p>
+                                    <p className="opacity-80 italic mb-1">Power, Network & Grounding</p>
+                                    <p>獨立音響電源、濾波排插、獨立區域網路（LAN）、Wi-Fi 頻譜管理、地線去耦（Ground Lift）等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">八、後勤、空間與場地協作</p>
+                                    <p className="opacity-80 italic mb-1">Logistics & Coordination</p>
+                                    <p>裝台時間、試音時間、清場排練時間、技術人員通話系統（Intercom）、冷氣空調管理等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">九、其他</p>
+                                    <p className="opacity-80 italic mb-1">Miscellaneous</p>
+                                    <p>特殊樂器保險、版權聲明、現場錄音/錄影許可限制、緊急應變聯絡清單等。</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Budget Plan */}
+                  <div className="bg-white border border-black">
+                    <SectionHeader title="Budget Plan" icon={DollarSign} visible={visibility.budget} onToggle={toggleVisibility} id="budget" />
+                    {visibility.budget && (
+                      <div className="p-8 space-y-12">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                          {[
+                            { key: 'personnel', label: '一、人事費 (Personnel)' },
+                            { key: 'administrative', label: '二、事務費 (Administrative)' },
+                            { key: 'operation', label: '三、業務費 (Operations)' },
+                            { key: 'travel', label: '四、旅運費 (Travel)' },
+                            { key: 'materials', label: '五、材料費 (Materials)' },
+                            { key: 'maintenance', label: '六、維護費 (Maintenance)' },
+                            { key: 'equipment', label: '七、設備費 (Equipment)' },
+                            { key: 'others', label: '九、其他 (Others)' }
+                          ].map(cat => (
+                            <div key={cat.key} className="space-y-4">
+                              <h3 className="text-sm font-bold border-b border-black pb-1 mb-3">{cat.label}</h3>
+                              
+                              <div className="space-y-4">
+                                {formData.budget.expenses[cat.key].items.map((item, idx) => (
+                                  <div key={item.id} className="group border border-slate-100 p-3 bg-slate-50/50 relative">
+                                    <button onClick={() => {
+                                       const newList = formData.budget.expenses[cat.key].items.filter(i => i.id !== item.id);
+                                       handleDataChange(`budget.expenses.${cat.key}.items`, newList);
+                                    }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
+                                      <Trash2 size={14}/>
+                                    </button>
+                                    
+                                    <div className="flex gap-4 items-center pr-6 mb-2">
+                                      <input className="flex-1 text-base py-1 border-b border-slate-300 focus:border-black outline-none editor-input bg-transparent" placeholder="Item Name" value={item.name} onChange={(e) => {
+                                        const newList = [...formData.budget.expenses[cat.key].items];
+                                        newList[idx].name = e.target.value;
+                                        handleDataChange(`budget.expenses.${cat.key}.items`, newList);
+                                      }}/>
+                                      <input type="number" className="w-24 text-base py-1 border-b border-slate-300 focus:border-black text-right outline-none editor-input bg-transparent" placeholder="Amount" value={item.amount} onChange={(e) => {
+                                        const newList = [...formData.budget.expenses[cat.key].items];
+                                        newList[idx].amount = parseFloat(e.target.value) || 0;
+                                        handleDataChange(`budget.expenses.${cat.key}.items`, newList);
+                                      }}/>
+                                    </div>
+                                    
+                                    <div>
+                                      <input 
+                                        className="w-full text-sm italic py-1 border-b border-dashed border-slate-300 focus:border-black outline-none editor-input bg-transparent text-slate-600"
+                                        placeholder="Add description/notes for this item..."
+                                        value={item.description || ''}
+                                        onChange={(e) => {
+                                          const newList = [...formData.budget.expenses[cat.key].items];
+                                          newList[idx].description = e.target.value;
+                                          handleDataChange(`budget.expenses.${cat.key}.items`, newList);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                <button onClick={() => addListItem(`budget.expenses.${cat.key}.items`, { name: '', amount: 0, description: '' })} className="text-sm font-bold opacity-40 hover:opacity-100 flex items-center gap-1">
+                                  <Plus size={14}/> Add Line Item
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Budget Guidelines */}
+                        <div className="pt-10 border-t border-black">
+                          <button 
+                            onClick={() => setShowInstructions(!showInstructions)}
+                            className="flex items-center gap-2 text-sm font-bold hover:underline"
+                          >
+                            <HelpCircle size={16}/> Budget Guidelines (經費報支說明)
+                          </button>
+                          
+                          {showInstructions && (
+                            <div className="mt-4 p-6 bg-slate-100 text-sm leading-relaxed space-y-6 border border-black font-sans">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">一、人事費 (Personnel Expenses)</p>
+                                    <p className="opacity-80 italic mb-1">薪資或酬勞性費用。</p>
+                                    <p>例如：企劃費、演出費、排練費、規劃費、設計費（燈光、佈景等）、創作費、工作費（導演、技術人員等）、研究費、稿費、出席費、翻譯費等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">二、事務費 (Administrative Expenses)</p>
+                                    <p className="opacity-80 italic mb-1">處理一般事務所發生的費用。</p>
+                                    <p>例如：場租、排練場租金、房租、水電費、保險費等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">三、業務費 (Operating Expenses)</p>
+                                    <p className="opacity-80 italic mb-1">實施特定工作計畫所發生的費用。</p>
+                                    <p>例如：設備租借（佈景、服裝、道具、樂器、燈光、音響等）、印刷、廣告宣傳、攝錄影、展場裝置、報名費、版權費、郵電費等。</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-4">
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">四、旅運費 (Travel & Transport)</p>
+                                    <p className="opacity-80 italic mb-1">因計畫公出之車資及旅費或公物搬運費。</p>
+                                    <p>例如：機票、運費（海空陸）、餐費、住宿費、手續費、機場稅等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">五、材料費 (Material Expenses)</p>
+                                    <p className="opacity-80 italic mb-1">計畫所需之材料或物料配件。</p>
+                                    <p>例如：創作材料、攝影材料、展演裝置材料、紀錄媒體、包裝材料、建築材料等。</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-bold border-b border-slate-300 pb-1 mb-2">六、維護費 (Maintenance Expenses)</p>
+                                    <p className="opacity-80 italic mb-1">器材或設備之維修或養護費用。</p>
+                                    <p>例如：事務設備維護、文物維修費、樂器維修費、道具維修費、環境維護等。</p>
+                                  </div>
+                                  <div className="bg-white/50 p-3 border border-black/10">
+                                    <p className="font-bold">七、設備費 (Equipment - Capital Expenditures)</p>
+                                    <p className="text-red-600 font-bold mt-1">注意：設備費購買資本性財產（電腦、樂器等）通常不在補助核銷範圍內。</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Preview Mode */
+              <div className="bg-white border border-black p-12 md:p-20 shadow-2xl min-h-[80vh]">
+                <div className="max-w-3xl mx-auto space-y-12">
+                  <header className="border-b-2 border-black pb-8">
+                    <h1 className="text-4xl font-bold tracking-tighter mb-4">{formData.project.title || 'Untitled Proposal'}</h1>
+                    <div className="grid grid-cols-2 gap-4 text-base font-serif">
+                       <div className="space-y-1">
+                         <p className="font-bold">{formData.artistInfo.name}</p>
+                         <p className="opacity-70">{formData.artistInfo.role}</p>
+                       </div>
+                       <div className="space-y-1 text-right">
+                         <p>{formData.artistInfo.email}</p>
+                         <p>{formData.artistInfo.phone}</p>
+                       </div>
+                    </div>
+                  </header>
+
+                  <div className="prose prose-slate max-w-none">
+                     {!proposal ? (
+                       <div className="py-20 text-center opacity-40 italic text-xl">
+                         Click synthesize to generate your proposal...
+                       </div>
+                     ) : (
+                       <div className="whitespace-pre-wrap leading-relaxed text-xl font-serif text-slate-800">
+                          {proposal}
+                       </div>
+                     )}
+                  </div>
+                  
+                  {/* Technical Diagrams Display in Preview */}
+                  {visibility.techRider && formData.techRider.uploadedDiagrams.length > 0 && (
+                    <div className="pt-20 border-t border-black/20">
+                      <h3 className="text-lg font-bold tracking-wide mb-10 opacity-70">Appendix: Technical Diagrams & Signal Flow</h3>
+                      <div className="space-y-8">
+                        {formData.techRider.uploadedDiagrams.map((img, idx) => (
+                          <div key={idx} className="border border-black p-4 bg-slate-50">
+                            <img src={img} className="w-full h-auto object-contain" alt={`Technical Diagram ${idx + 1}`} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Documentation Appendix */}
+                  {visibility.portfolio && formData.works.some(w => w.title) && (
+                    <div className="pt-20 border-t border-black/20">
+                      <h3 className="text-lg font-bold tracking-wide mb-10 opacity-70">Appendix: Supporting Works</h3>
+                      <div className="space-y-12">
+                        {formData.works.map(work => work.title && (
+                          <div key={work.id} className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                            <div className="md:col-span-4">
+                               <p className="text-lg font-bold underline mb-2">{work.title}</p>
+                               <p className="text-sm opacity-70 italic">{work.type} / {work.role}</p>
+                               <p className="text-sm mt-1">{work.location}</p>
+                            </div>
+                            <div className="md:col-span-8">
+                               <p className="text-base mb-4 leading-relaxed">{work.desc}</p>
+                               {work.images.length > 0 && (
+                                 <div className="flex gap-2">
+                                   {work.images.map((img, i) => (
+                                     <img key={i} src={img} className="h-24 w-24 object-cover grayscale border border-black/10" />
+                                   ))}
+                                 </div>
+                               )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* Floating Synthesis Button */}
+          {activeTab === 'editor' && (
+            <div className="fixed bottom-10 right-10 z-50 flex items-center gap-4">
+               <select 
+                 value={outputLanguage} 
+                 onChange={(e) => setOutputLanguage(e.target.value)} 
+                 className="bg-white border border-black text-black px-4 py-4 font-bold text-sm tracking-wide shadow-2xl outline-none cursor-pointer"
+               >
+                 <option value="English">Output: English</option>
+                 <option value="Chinese">輸出：繁體中文</option>
+               </select>
+               <button 
+                onClick={generateFullProposal}
+                disabled={loading}
+                className="bg-black text-white px-8 py-4 font-bold text-base tracking-wide shadow-2xl hover:bg-zinc-800 transition-all flex items-center gap-3 active:scale-95"
+               >
+                 {loading ? <RefreshCw className="animate-spin" size={20}/> : <Send size={20}/>}
+                 {loading ? 'Synthesizing...' : 'Synthesize Proposal'}
+               </button>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
